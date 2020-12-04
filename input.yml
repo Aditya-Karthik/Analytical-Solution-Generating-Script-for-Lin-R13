@@ -1,0 +1,56 @@
+# Geometric Parameters
+# ======================
+# - R0: Inner Radius
+# - R1: Outer Radius
+# - fac: Stress prescription in Inflow-model
+R0: 0.5
+R1: 2.0
+fac: 1.0
+
+# Formulation Parameters
+# ======================
+# - kn: Knudsen number/Relaxation time
+# - chi_tilde: Accommodation coefficient in Maxwell Model
+# - heat_source: Heat source function
+# - mass_source: Mass source function
+# - body_force_R: Radial Component of Body Force
+# - body_force_Theta: Tangential Component of Body Force
+
+# Source Term Formats
+# ===================
+# - heat source - (1/kn)*(Q0 + Q1*(R/kn)*cosphi + Q2*(R**2/kn**2))
+# - mass source - (1/kn)*(M0 + M1*(R/kn)*cosphi + M2*(R**2/kn**2))
+# - heat source - (1/kn)*(F0 + (F1*((R/kn) + ((9*kn)/(5*R))) + F22*(R**2/kn**2))*cosphi + F2*(R**2/kn**2))
+# - heat source - (1/kn)*(G0*(1-((5*R**2)/(27*kn**2))) + G1*(R/kn) + (G2*(R**2/kn**2) + G11*(kn/R))*sinphi)
+kn: 1.0
+chi_tilde: 1.0
+heat_source: (1/kn)*(0.1 + 0.2*(R/kn)*cos(phi) + 0.3*(R**2/kn**2))
+mass_source: (1/kn)*(0.1 + 0.2*(R/kn)*cos(phi) + 0.3*(R**2/kn**2))
+body_force_R: (1/kn)*(0.1 + (0.2*((R/kn) + ((9*kn)/(5*R))) + 0.4*(R**2/kn**2))*cos(phi) + 0.3*(R**2/kn**2))
+body_force_Theta: (1/kn)*(0.1*(1-((5*R**2)/(27*kn**2))) + 0.2*(R/kn) + (0.3*(R**2/kn**2) + 0.4*(kn/R))*sin(phi))
+
+# Boundary Conditions
+# ===================
+# - bcs:
+#   - bc_id: Inner/Outer boundary
+#     - theta_w: Value for temperature at wall
+#     - u_t_w: Value for tangential velocity at wall
+#     - u_n_w: Value for normal velocity at wall
+#     - p_w: Value for pressure at wall
+#     - epsilon_v: Inflow-model parameter <=> Weight of pressure prescription
+#     - epsilon_p: Inflow-model parameter <=> Weight of velocity prescription
+bcs:
+  inner:
+    theta_w: 1.0
+    u_t_w: 0
+    u_n_w: 0
+    p_w: 0
+    epsilon_v: pow(10,-3)
+    epsilon_p: 1
+  outer:
+    theta_w: 2.0
+    u_t_w: -1.00 * sin(phi)
+    u_n_w: +1.00 * cos(phi)
+    p_w: -0.27 * cos(phi)
+    epsilon_v: pow(10,+3)
+    epsilon_p: 1
