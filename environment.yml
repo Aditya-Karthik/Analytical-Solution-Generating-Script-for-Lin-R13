@@ -1,0 +1,9 @@
+name: lin-r13
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - numpy=1.26.4
+  - scipy=1.13.1
+  - sympy=1.12
+  - pyyaml=6.0.3
