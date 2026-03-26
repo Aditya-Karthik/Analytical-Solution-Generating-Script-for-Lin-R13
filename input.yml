@@ -5,7 +5,7 @@
 # - fac: Stress prescription in Inflow-model
 R0: 0.5
 R1: 2.0
-fac: 1.0
+fac: 0.0
 
 # Formulation Parameters
 # ======================
@@ -22,12 +22,14 @@ fac: 1.0
 # - mass source - (1/kn)*(M0 + M1*(R/kn)*cosphi + M2*(R**2/kn**2))
 # - heat source - (1/kn)*(F0 + (F1*((R/kn) + ((9*kn)/(5*R))) + F22*(R**2/kn**2))*cosphi + F2*(R**2/kn**2))
 # - heat source - (1/kn)*(G0*(1-((5*R**2)/(27*kn**2))) + G1*(R/kn) + (G2*(R**2/kn**2) + G11*(kn/R))*sinphi)
-kn: 1.0
+# - zero_mean_pressure: If true, subtract the annulus-average from the exact pressure
+kn: 0.1
 chi_tilde: 1.0
-heat_source: (1/kn)*(0.1 + 0.2*(R/kn)*cos(phi) + 0.3*(R**2/kn**2))
-mass_source: (1/kn)*(0.1 + 0.2*(R/kn)*cos(phi) + 0.3*(R**2/kn**2))
-body_force_R: (1/kn)*(0.1 + (0.2*((R/kn) + ((9*kn)/(5*R))) + 0.4*(R**2/kn**2))*cos(phi) + 0.3*(R**2/kn**2))
-body_force_Theta: (1/kn)*(0.1*(1-((5*R**2)/(27*kn**2))) + 0.2*(R/kn) + (0.3*(R**2/kn**2) + 0.4*(kn/R))*sin(phi))
+heat_source: 0
+mass_source: 0
+body_force_R: 0
+body_force_Theta: 0
+zero_mean_pressure: true
 
 # Boundary Conditions
 # ===================
@@ -42,15 +44,15 @@ body_force_Theta: (1/kn)*(0.1*(1-((5*R**2)/(27*kn**2))) + 0.2*(R/kn) + (0.3*(R**
 bcs:
   inner:
     theta_w: 1.0
-    u_t_w: 0
+    u_t_w: 1.0
     u_n_w: 0
     p_w: 0
-    epsilon_v: pow(10,-3)
+    epsilon_v: 1E-6
     epsilon_p: 1
   outer:
     theta_w: 2.0
-    u_t_w: -1.00 * sin(phi)
-    u_n_w: +1.00 * cos(phi)
-    p_w: -0.27 * cos(phi)
-    epsilon_v: pow(10,+3)
+    u_t_w: 1.0
+    u_n_w: 0.0
+    p_w: 0.0
+    epsilon_v: 1E-6
     epsilon_p: 1
