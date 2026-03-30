@@ -54,7 +54,7 @@ def main():
     print("\nExact Solutions generated in current directory")
 
 def read_yaml(yaml_file):
-    global τ,chi,θ0,θ1,vn0,vn1,vt0,vt1,p0,p1,ev0,ev1,M0,M1,M2,Q0,Q1,Q2,F0,F1,F2,F22,G0,G1,G2,G11,R0,R1,fac,ep0,ep1
+    global τ,chi,θ0,θ1,vn0,vn1,vt0,vt1,p0,p1,ev0,ev1,M0,M1,M2,Q0,Q1,Q2,F0,F1,F2,F22,G0,G1,G2,G11,R0,R1,fac,ep0,ep1,zero_mean_pressure
     try:
         with open(yaml_file, "r") as stream:
             inp = yaml.safe_load(stream)
@@ -68,6 +68,7 @@ def read_yaml(yaml_file):
     fac = inp["fac"]
     τ = inp["kn"]
     chi = inp["chi_tilde"]
+    zero_mean_pressure = bool(inp.get("zero_mean_pressure", False))
 
     # Boundary Conditions
     θ0 = eval(str(inp["bcs"]["inner"]["theta_w"]).replace("sin(phi)", "sinphi").replace("cos(phi)", "cosphi"))
@@ -173,11 +174,14 @@ def write_sol_python():
     output.write(out)
     output.close()
 
+def ccode_expr(expr):
+    return remove_comments(ccode(expr, user_functions={"besseli": "BI", "besselk": "BK"}))
+
 # Exporting Solution as a Dolfin compatible script
 def write_sol_dolfin():
     output = open("Exact_Sol_Dolfin.cpp", "w")
-    data = [["Temperature", "", [remove_comments(ccode(str(theta())))]], ["Heatflux", "2", [remove_comments(ccode(str(sx()))),remove_comments(ccode(str(sy())))]], ["Pressure", "", [remove_comments(ccode(str(p())))]],
-            ["Velocity", "2", [remove_comments(ccode(str(ux()))),remove_comments(ccode(str(uy())))]], ["Stress", "2,2", [remove_comments(ccode(str(sig_xx()))), remove_comments(ccode(str(sig_xy()))), remove_comments(ccode(str(sig_yy())))]]]
+    data = [["Temperature", "", [ccode_expr(theta())]], ["Heatflux", "2", [ccode_expr(sx()),ccode_expr(sy())]], ["Pressure", "", [ccode_expr(p())]],
+            ["Velocity", "2", [ccode_expr(ux()),ccode_expr(uy())]], ["Stress", "2,2", [ccode_expr(sig_xx()), ccode_expr(sig_xy()), ccode_expr(sig_yy())]]]
     out = ""
     out += "#include <pybind11/pybind11.h>\n#include <pybind11/eigen.h>\n \n#include <cmath>\n#include <boost/math/special_functions/bessel.hpp>\n \nusing namespace std;\n \nnamespace py = pybind11;\n \n#include <dolfin/function/Expression.h>\n \n"
     out += "double BI( int n, double x ) { return boost::math::cyl_bessel_i(n,x); }\ndouble BK( int n, double x ) { return boost::math::cyl_bessel_k(n,x); }\n \n"
@@ -201,8 +205,8 @@ def write_sol_dolfin():
 # Exporting Solution as a C++ script
 def write_sol_c_code():
     output = open("Exact_Sol_C++.h", "w")
-    data = [["theta", remove_comments(ccode(str(theta())))], ["s_x", remove_comments(ccode(str(sx())))], ["s_y", remove_comments(ccode(str(sy())))], ["p", remove_comments(ccode(str(p())))],
-            ["u_x", remove_comments(ccode(str(ux())))], ["u_y", remove_comments(ccode(str(uy())))], ["sig_xx", remove_comments(ccode(str(sig_xx())))], ["sig_xy", remove_comments(ccode(str(sig_xy())))], ["sig_yy", remove_comments(ccode(str(sig_yy())))]]
+    data = [["theta", ccode_expr(theta())], ["s_x", ccode_expr(sx())], ["s_y", ccode_expr(sy())], ["p", ccode_expr(p())],
+            ["u_x", ccode_expr(ux())], ["u_y", ccode_expr(uy())], ["sig_xx", ccode_expr(sig_xx())], ["sig_xy", ccode_expr(sig_xy())], ["sig_yy", ccode_expr(sig_yy())]]
     out = ""
     out += "#include <cmath>\n#include <boost/math/special_functions/bessel.hpp>\n \nusing namespace std;\n \n"
     out += "double BI( int n, double x ) { return boost::math::cyl_bessel_i(n,x); }\ndouble BK( int n, double x ) { return boost::math::cyl_bessel_k(n,x); }\n \n"
@@ -218,8 +222,17 @@ def write_sol_c_code():
 # Generic expressions for the field variables
 def theta():
     return c5 + ((M2 - Q2)*pow(pow(x,2) + pow(y,2),2))/(60.*pow(τ,4)) + ((5*M0 - 84*M2 - 5*Q0 + 124*Q2)*(pow(x,2) + pow(y,2)))/(75.*pow(τ,2)) - (8*C1I1*BesselI(0,(sympy.sqrt(0.8333333333333334)*sympy.sqrt(pow(x,2) + pow(y,2)))/τ))/(15.*BesselI(0,(sympy.sqrt(0.8333333333333334)*R1)/τ)) - (8*C1K1*BesselK(0,(sympy.sqrt(0.8333333333333334)*sympy.sqrt(pow(x,2) + pow(y,2)))/τ))/(15.*BesselK(2,(sympy.sqrt(0.8333333333333334)*R0)/τ)) + (x*(((M1 - Q1)*pow(pow(x,2) + pow(y,2),1.5))/(30.*pow(τ,3)) + (c11*sympy.sqrt(pow(x,2) + pow(y,2)))/τ + (c10*τ)/sympy.sqrt(pow(x,2) + pow(y,2)) - (16*C1I2*BesselI(1,(sympy.sqrt(0.8333333333333334)*sympy.sqrt(pow(x,2) + pow(y,2)))/τ))/(15.*BesselI(1,(sympy.sqrt(0.8333333333333334)*R1)/τ)) - (16*C1K2*BesselK(1,(sympy.sqrt(0.8333333333333334)*sympy.sqrt(pow(x,2) + pow(y,2)))/τ))/(15.*BesselK(3,(sympy.sqrt(0.8333333333333334)*R0)/τ))))/sympy.sqrt(pow(x,2) + pow(y,2)) - (4*c3*sympy.log(sympy.sqrt(pow(x,2) + pow(y,2))/τ))/15.
-def p():
+def p_raw():
     return c4 + (F2*pow(pow(x,2) + pow(y,2),1.5))/(3.*pow(τ,3)) + (4*(3*M2 + 2*Q2)*(pow(x,2) + pow(y,2)))/(15.*pow(τ,2)) + (F0*sympy.sqrt(pow(x,2) + pow(y,2)))/τ - (4*C1I1*BesselI(0,(sympy.sqrt(0.8333333333333334)*sympy.sqrt(pow(x,2) + pow(y,2)))/τ))/(3.*BesselI(0,(sympy.sqrt(0.8333333333333334)*R1)/τ)) - (4*C1K1*BesselK(0,(sympy.sqrt(0.8333333333333334)*sympy.sqrt(pow(x,2) + pow(y,2)))/τ))/(3.*BesselK(2,(sympy.sqrt(0.8333333333333334)*R0)/τ)) + (x*(-G11 + ((3*F22 + G2)*pow(pow(x,2) + pow(y,2),1.5))/(8.*pow(τ,3)) + (2*F1*(pow(x,2) + pow(y,2)))/(3.*pow(τ,2)) - (2*c9*sympy.sqrt(pow(x,2) + pow(y,2)))/τ + ((3*M1 + 2*Q1)*sympy.sqrt(pow(x,2) + pow(y,2)))/(5.*τ) + (c8*τ)/sympy.sqrt(pow(x,2) + pow(y,2)) - (8*C1I2*BesselI(1,(sympy.sqrt(0.8333333333333334)*sympy.sqrt(pow(x,2) + pow(y,2)))/τ))/(3.*BesselI(1,(sympy.sqrt(0.8333333333333334)*R1)/τ)) - (8*C1K2*BesselK(1,(sympy.sqrt(0.8333333333333334)*sympy.sqrt(pow(x,2) + pow(y,2)))/τ))/(3.*BesselK(3,(sympy.sqrt(0.8333333333333334)*R0)/τ))))/sympy.sqrt(pow(x,2) + pow(y,2))
+def p_mean():
+    alpha = math.sqrt(0.8333333333333334)/τ
+    annulus_size = pow(R1,2) - pow(R0,2)
+    return c4 + (2*F0*(pow(R1,3) - pow(R0,3)))/(3.*τ*annulus_size) + (2*(3*M2 + 2*Q2)*(pow(R1,4) - pow(R0,4)))/(15.*pow(τ,2)*annulus_size) + (2*F2*(pow(R1,5) - pow(R0,5)))/(15.*pow(τ,3)*annulus_size) - (8*C1I1*(R1*BesselI(1,alpha*R1) - R0*BesselI(1,alpha*R0)))/(3.*alpha*BesselI(0,alpha*R1)*annulus_size) + (8*C1K1*(R1*BesselK(1,alpha*R1) - R0*BesselK(1,alpha*R0)))/(3.*alpha*BesselK(2,alpha*R0)*annulus_size)
+def p():
+    pressure = p_raw()
+    if zero_mean_pressure:
+        return sympy.simplify(pressure - p_mean())
+    return pressure
 def ux():
     return -((y*((16*G0)/15. + (G0*pow(pow(x,2) + pow(y,2),2))/(81.*pow(τ,4)) - (G1*pow(pow(x,2) + pow(y,2),1.5))/(8.*pow(τ,3)) - (52*G0*(pow(x,2) + pow(y,2)))/(81.*pow(τ,2)) + (c6*sympy.sqrt(pow(x,2) + pow(y,2)))/τ + (c1*τ)/(2.*sympy.sqrt(pow(x,2) + pow(y,2))) - (2*C3I1*BesselI(1,(sympy.sqrt(5)*sympy.sqrt(pow(x,2) + pow(y,2)))/(3.*τ)))/(5.*BesselI(1,(sympy.sqrt(5)*R1)/(3.*τ))) - (2*C3K1*BesselK(1,(sympy.sqrt(5)*sympy.sqrt(pow(x,2) + pow(y,2)))/(3.*τ)))/(5.*BesselK(1,(sympy.sqrt(5)*R0)/(3.*τ))) - (y*(c12 + (5*(F22 + 3*G2)*pow(pow(x,2) + pow(y,2),2))/(192.*pow(τ,4)) + (4*F1*pow(pow(x,2) + pow(y,2),1.5))/(45.*pow(τ,3)) - (3*c9*(pow(x,2) + pow(y,2)))/(4.*pow(τ,2)) + ((-25*F22 - 75*G2 + 2*M1 - 2*Q1)*(pow(x,2) + pow(y,2)))/(40.*pow(τ,2)) - (104*F1*sympy.sqrt(pow(x,2) + pow(y,2)))/(45.*τ) + (3*c10*pow(τ,2))/(2.*(pow(x,2) + pow(y,2))) - (c7*pow(τ,2))/(4.*(pow(x,2) + pow(y,2))) + (C3I2*((-2*BesselI(0,(sympy.sqrt(5)*sympy.sqrt(pow(x,2) + pow(y,2)))/(3.*τ)))/5. - (2*BesselI(2,(sympy.sqrt(5)*sympy.sqrt(pow(x,2) + pow(y,2)))/(3.*τ)))/5.))/BesselI(0,(sympy.sqrt(5)*R1)/(3.*τ)) + (C3K2*((-2*BesselK(0,(sympy.sqrt(5)*sympy.sqrt(pow(x,2) + pow(y,2)))/(3.*τ)))/5. - (2*BesselK(2,(sympy.sqrt(5)*sympy.sqrt(pow(x,2) + pow(y,2)))/(3.*τ)))/5.))/BesselK(2,(sympy.sqrt(5)*R0)/(3.*τ)) + c8*((-5*pow(τ,2))/(3.*(pow(x,2) + pow(y,2))) - sympy.log(sympy.sqrt(pow(x,2) + pow(y,2))/τ)/2.)))/sympy.sqrt(pow(x,2) + pow(y,2))))/sympy.sqrt(pow(x,2) + pow(y,2))) + (x*((M2*pow(pow(x,2) + pow(y,2),1.5))/(4.*pow(τ,3)) + (M0*sympy.sqrt(pow(x,2) + pow(y,2)))/(2.*τ) + (c2*τ)/(2.*sympy.sqrt(pow(x,2) + pow(y,2))) - (2*c3*τ)/(5.*sympy.sqrt(pow(x,2) + pow(y,2))) + (x*(c12 + ((F22 + 3*G2)*pow(pow(x,2) + pow(y,2),2))/(192.*pow(τ,4)) + (F1*pow(pow(x,2) + pow(y,2),1.5))/(45.*pow(τ,3)) - (c9*(pow(x,2) + pow(y,2)))/(4.*pow(τ,2)) + ((-25*F22 - 75*G2 + 42*M1 - 2*Q1)*(pow(x,2) + pow(y,2)))/(120.*pow(τ,2)) - (52*F1*sympy.sqrt(pow(x,2) + pow(y,2)))/(45.*τ) + (48*F1*τ)/(25.*sympy.sqrt(pow(x,2) + pow(y,2))) - (3*c10*pow(τ,2))/(2.*(pow(x,2) + pow(y,2))) + (c7*pow(τ,2))/(4.*(pow(x,2) + pow(y,2))) + (C3I2*((-2*BesselI(0,(sympy.sqrt(5)*sympy.sqrt(pow(x,2) + pow(y,2)))/(3.*τ)))/5. + (2*BesselI(2,(sympy.sqrt(5)*sympy.sqrt(pow(x,2) + pow(y,2)))/(3.*τ)))/5.))/BesselI(0,(sympy.sqrt(5)*R1)/(3.*τ)) + (C3K2*((-2*BesselK(0,(sympy.sqrt(5)*sympy.sqrt(pow(x,2) + pow(y,2)))/(3.*τ)))/5. + (2*BesselK(2,(sympy.sqrt(5)*sympy.sqrt(pow(x,2) + pow(y,2)))/(3.*τ)))/5.))/BesselK(2,(sympy.sqrt(5)*R0)/(3.*τ)) + c8*(0.5 + (5*pow(τ,2))/(3.*(pow(x,2) + pow(y,2))) - sympy.log(sympy.sqrt(pow(x,2) + pow(y,2))/τ)/2.)))/sympy.sqrt(pow(x,2) + pow(y,2))))/sympy.sqrt(pow(x,2) + pow(y,2))
 def uy():

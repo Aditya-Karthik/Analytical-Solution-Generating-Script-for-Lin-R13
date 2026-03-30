@@ -1,0 +1,10 @@
+.conda-pkgs/
+.conda-env*/
+.venv/
+.venv-compat/
+__pycache__/
+*.pyc
+
+Exact_Sol_Python.py
+Exact_Sol_Dolfin.cpp
+Exact_Sol_C++.h
